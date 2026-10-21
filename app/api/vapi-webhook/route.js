@@ -21,11 +21,15 @@ export async function POST(req) {
       const transcript = message.transcript || callData.transcript || '';
       
       const vapiRecordingUrl = 
-        message.artifact?.recordingUrl || 
-        callData.artifact?.recordingUrl || 
-        callData.recordingUrl || 
-        message.recordingUrl || 
-        null;
+      message.artifact?.recordingUrl || 
+      callData.artifact?.recordingUrl || 
+      message.recordingUrl || 
+      callData.recordingUrl || 
+      message.artifact?.stereoRecordingUrl || 
+      callData.artifact?.stereoRecordingUrl ||
+      message.stereoRecordingUrl ||
+      callData.stereoRecordingUrl ||
+      null;
       const summaryText = message.analysis?.summary || 'Call completed successfully.';
       
       // Use upsert on vapi_call_id to cleanly insert or update without primary key type mismatches
