@@ -151,9 +151,9 @@ export async function POST(req) {
             duration_seconds: duration,
             transcript,
           })
-          .eq('id', existingCall.id);
+          .eq('vapi_call_id', vapiCallId);
         if (updateError) throw updateError;
-        callId = existingCall.id;
+        callId = vapiCallId;
       }
     }
 
