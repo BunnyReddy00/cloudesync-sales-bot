@@ -104,39 +104,4 @@ export default function SalesBotPage() {
     } else if (textBlob.includes("call back") || textBlob.includes("tomorrow") || textBlob.includes("later")) {
       status = "Follow-up Required";
       summary = "Customer asked for a follow-up call at a later date.";
-    } else if (textBlob.includes("not interested") || textBlob.includes("no thanks") || textBlob.includes("stop")) {
-      status = "Not Interested";
-      summary = "Customer declined the offer and stated no current need.";
-    }
-
-    setSalesStatus(status);
-    setAiSummary(summary);
-
-    const formattedDuration = formatTime(finalDurationSeconds);
-
-    const newEntry = {
-      id: Date.now(),
-      date: new Date().toLocaleString(),
-      duration: formattedDuration === "00:00" ? "00:05" : formattedDuration,
-      status: status,
-      summary: summary,
-      messages: [...messages],
-      recordingUrl: recordingUrl
-    };
-
-    setCallHistory((prev) => {
-      const updated = [newEntry, ...prev];
-      localStorage.setItem("sankar_sales_call_history", JSON.stringify(updated));
-      return updated;
-    });
-  };
-
-  return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 p-6 md:p-12">
-      <div className="max-w-6xl mx-auto space-y-8">
-        
-        {/* Header */}
-        <header className="border-b border-slate-800 pb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-extrabold tracking-tight text-white">Sankar Group – AI Voice Sales Bot</h1>
-            <p className="text-slate-400 text-sm mt-1">Intern Assignment Submission Dashboard</p>
+    } else if (textBlob.includes("not interested") || textBlob.includes("
