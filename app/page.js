@@ -8,7 +8,6 @@ export default function Page() {
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
 
-  // Start live recording from microphone
   const startRecording = async () => {
     try {
       audioChunksRef.current = [];
@@ -35,44 +34,43 @@ export default function Page() {
     }
   };
 
-  // Stop recording
   const stopRecording = () => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
-      // Stop all microphone tracks to turn off the mic light
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
       setRecording(false);
     }
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-gray-900 text-white">
-      <div className="max-w-md w-full bg-gray-800 p-6 rounded-lg shadow-lg text-center">
-        <h1 className="text-2xl font-bold mb-6">Live Audio Recorder & Player</h1>
+    <main className="flex min-h-screen flex-col items-center justify-center p-8 bg-slate-950 text-white">
+      <div className="max-w-md w-full bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl text-center">
+        <h1 className="text-2xl font-bold mb-2">CloudSync Sales Bot</h1>
+        <p className="text-slate-400 text-sm mb-8">Record and test your audio inputs below</p>
 
-        {/* Live Call / Recording Controls */}
         <div className="mb-6">
           {!recording ? (
             <button
               onClick={startRecording}
-              className="bg-red-600 hover:bg-red-700 text-white font-semibold px-6 py-3 rounded-full transition"
+              className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-4 rounded-xl transition duration-200 shadow-lg shadow-red-900/30 flex items-center justify-center gap-2"
             >
+              <span className="w-3 h-3 bg-white rounded-full animate-pulse"></span>
               Start Recording
             </button>
           ) : (
             <button
               onClick={stopRecording}
-              className="bg-gray-600 hover:bg-gray-700 text-white font-semibold px-6 py-3 rounded-full animate-pulse transition"
+              className="w-full bg-slate-700 hover:bg-slate-600 text-white font-medium py-3 px-4 rounded-xl transition duration-200 flex items-center justify-center gap-2"
             >
-              Stop Recording...
+              <span className="w-3 h-3 bg-red-500 rounded-full animate-ping"></span>
+              Stop Recording
             </button>
           )}
         </div>
 
-        {/* Playback Section */}
         {audioUrl && (
-          <div className="mt-6 border-t border-gray-700 pt-4">
-            <h2 className="text-lg font-medium mb-3">Listen to Recording:</h2>
+          <div className="mt-8 pt-6 border-t border-slate-800">
+            <h2 className="text-sm font-medium text-slate-300 mb-3 text-left">Playback Recording:</h2>
             <audio controls src={audioUrl} className="w-full" />
           </div>
         )}
