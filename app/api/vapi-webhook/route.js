@@ -9,20 +9,21 @@ const supabase = createClient(
 export async function POST(req) {
   try {
     const body = await req.json();
-    const message = body.message;
+    const message = body.message || {};
+    const callData = message.call || body.call || {};
 
-    if (message && message.type === 'end-of-call-report') {
-      const callData = message.call || {};
-      const vapiCallId = callData.id;
+    if (message.type === 'end-of-call-report' || callData.id) {
+      const vapiCallId = callData.id || message.callId;
       
-      const rawDuration = callData.durationSeconds || message.durationSeconds || callData.duration || 0;
+      // Extract duration from all possible locations in the Vapi payload
+      const rawDuration = callData.durationSeconds || message.durationSeconds || callData.duration || message.call?.duration || 0;
       const duration = Math.round(Number(rawDuration) || 0);
-      const transcript = message.transcript || callData.transcript || '';
-      const summaryText = message.analysis?.summary || 'Call completed successfully.';
 
-      // Use your exact production domain for the proxy URL
+      const transcript = message.transcript || callData.transcript || '';
+      const summaryText = message.analysis?.summary || callData.analysis?.summary || 'Call completed successfully.';
+
       const recordingUrl = vapiCallId 
-        ? `https://cloudsync-sales-bot-git-main-kanyarashi15.vercel.app/api/recording?id=${vapiCallId}` 
+        ? `https://cloudsync-sales-bot.vercel.app/api/recording?id=${vapiCallId}` 
         : null;
 
       const { error } = await supabase
