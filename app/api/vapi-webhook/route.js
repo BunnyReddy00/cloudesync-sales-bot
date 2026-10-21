@@ -184,7 +184,7 @@ export async function POST(req) {
       const { error: recordingUpdateError } = await supabase
         .from('calls')
         .update({ recording_url: recordingReference })
-        .eq('vapi_call_id', callId);
+        .eq('vapi_call_id', vapiCallId);
       if (recordingUpdateError) throw recordingUpdateError;
     }
 
@@ -220,7 +220,7 @@ export async function POST(req) {
             summary: analysis.summary,
             sales_status: analysis.sales_status,
           })
-          .eq('id', callId);
+          .eq('vapi_call_id', vapiCallId);
         if (updateError) throw updateError;
       } catch (error) {
         console.error('Call saved, but AI analysis failed:', error);
