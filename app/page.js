@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import Vapi from "@vapi-ai/web";
 
-const vapi = new Vapi(process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY || "YOUR_PUBLIC_KEY_HERE");
+const vapi = new Vapi(process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY || "63c6ac0f-820b-4cd9-9cb2-c7356491ae85");
 
 export default function SalesBotPage() {
   const [connecting, setConnecting] = useState(false);
@@ -68,7 +68,7 @@ export default function SalesBotPage() {
       setConnecting(true);
       setMessages([]);
       setAiSummary("Analyzing conversation...");
-      const assistantId = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID || "YOUR_ASSISTANT_ID";
+      const assistantId = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID || "7e379781-ecca-4f5a-98fc-47aba2c2fc44";
       await vapi.start(assistantId);
     } catch (err) {
       console.error("Failed to start call:", err);
