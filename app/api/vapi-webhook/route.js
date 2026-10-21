@@ -13,6 +13,7 @@ export async function POST(req) {
     // Check if it's an end-of-call report from Vapi
     const message = body.message;
     if (message && message.type === 'end-of-call-report') {
+    console.log('FULL VAPI MESSAGE:', JSON.stringify(message, null, 2));
       const callData = message.call || {};
       const vapiCallId = callData.id;
       const rawDuration = callData.durationSeconds || message.durationSeconds || callData.duration || 0;
