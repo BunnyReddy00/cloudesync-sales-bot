@@ -1,27 +1,31 @@
 import { NextResponse } from 'next/server';
 
 export async function GET(req) {
-  const { searchParams } = new URL(req.url);
-  const callId = searchParams.get('id');
-
-  if (!callId) {
-    return NextResponse.json({ error: 'Missing call ID' }, { status: 400 });
-  }
-
   try {
+    const { searchParams } = new URL(req.url);
+    const callId = searchParams.get('id');
+
+    if (!callId) {
+      return NextResponse.json({ error: 'Missing call ID' }, { status: 400 });
+    }
+
+    const apiKey = process.env.VAPI_PRIVATE_API_KEY;
+    if (!apiKey) {
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    }
+
     const vapiRes = await fetch(`https://api.vapi.ai/call/${callId}/stereo-recording`, {
       headers: {
-        'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}`
+        'Authorization': `Bearer ${apiKey}`
       },
       redirect: 'manual'
     });
 
     const location = vapiRes.headers.get('location');
     if (location) {
-      const res = NextResponse.redirect(location);
-      // Add CORS headers so the browser allows audio streaming
-      res.headers.set('Access-Control-Allow-Origin', '*');
-      return res;
+      const response = NextResponse.redirect(location);
+      response.headers.set('Access-Control-Allow-Origin', '*');
+      return response;
     }
 
     return NextResponse.json({ error: 'Recording not found' }, { status: 404 });
