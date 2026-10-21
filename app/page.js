@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import Vapi from "@vapi-ai/web";
 
-// Initialize Vapi using your Public API Key
 const vapi = new Vapi(process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY || "YOUR_PUBLIC_KEY_HERE");
 
 export default function SalesBotPage() {
@@ -12,20 +11,23 @@ export default function SalesBotPage() {
   const [messages, setMessages] = useState([]);
   const [callDuration, setCallDuration] = useState(0);
   
-  // Assignment Requirements state
   const [salesStatus, setSalesStatus] = useState("No Response");
   const [aiSummary, setAiSummary] = useState("Waiting for conversation to finish...");
-  const [recordingUrl, setRecordingUrl] = useState(null);
   const [callHistory, setCallHistory] = useState([]);
 
   const timerRef = useRef(null);
+  const durationRef = useRef(0); // Fixes closure issue for duration
 
   useEffect(() => {
-    // Vapi Event Listeners
+    durationRef.current = callDuration;
+  }, [callDuration]);
+
+  useEffect(() => {
     vapi.on("call-start", () => {
       setConnecting(false);
       setCallActive(true);
       setCallDuration(0);
+      durationRef.current = 0;
       timerRef.current = setInterval(() => {
         setCallDuration((prev) => prev + 1);
       }, 1000);
@@ -34,7 +36,7 @@ export default function SalesBotPage() {
     vapi.on("call-end", () => {
       setCallActive(false);
       clearInterval(timerRef.current);
-      generateAssignmentArtifacts();
+      generateAssignmentArtifacts(durationRef.current);
     });
 
     vapi.on("message", (message) => {
@@ -43,23 +45,29 @@ export default function SalesBotPage() {
       }
     });
 
-    // Load history from localStorage on mount
-    const saved = localStorage.getItem("sankar_call_history");
-    if (saved) {
-      setCallHistory(JSON.parse(saved));
-    }
+    // Fetch call history from API route
+    fetchHistory();
 
     return () => clearInterval(timerRef.current);
   }, []);
+
+  const fetchHistory = async () => {
+    try {
+      const res = await fetch("/api/vapi-webhook");
+      const data = await res.json();
+      if (data.history) {
+        setCallHistory(data.history);
+      }
+    } catch (e) {
+      console.error("Failed to fetch history", e);
+    }
+  };
 
   const startCall = async () => {
     try {
       setConnecting(true);
       setMessages([]);
-      setRecordingUrl(null);
       setAiSummary("Analyzing conversation...");
-      
-      // Replace with your Vapi Assistant ID
       const assistantId = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID || "YOUR_ASSISTANT_ID";
       await vapi.start(assistantId);
     } catch (err) {
@@ -79,28 +87,23 @@ export default function SalesBotPage() {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Automatically evaluate summary and assign sales status based on conversation keywords
-  const generateAssignmentArtifacts = () => {
-    // Mock simulation or capture recording artifact from Vapi session
-    const mockRecording = vapi.getAudioPlayer ? null : null; 
-    
-    // Evaluate summary based on messages
+  const generateAssignmentArtifacts = (finalDurationSeconds) => {
     const textBlob = messages.map(m => m.text).join(" ").toLowerCase();
     let status = "Interested";
     let summary = "Customer engaged in conversation about SaaS pricing and features.";
 
-    if (textBlob.includes("buy") || textBlob.includes("subscribe") || textBlob.includes("sign up") || textBlob.includes("send payment")) {
+    if (textBlob.includes("buy") || textBlob.includes("subscribe") || textBlob.includes("sign up")) {
       status = "Converted";
       summary = "Customer agreed to purchase and requested onboarding details.";
-    } else if (textBlob.includes("demo") || textBlob.includes("show me") || textBlob.includes("walkthrough")) {
+    } else if (textBlob.includes("demo") || textBlob.includes("show me")) {
       status = "Demo Requested";
       summary = "Customer requested a live product walkthrough demonstration.";
-    } else if (textBlob.includes("call back") || textBlob.includes("tomorrow") || textBlob.includes("later")) {
+    } else if (textBlob.includes("call back") || textBlob.includes("tomorrow")) {
       status = "Follow-up Required";
       summary = "Customer asked for a follow-up call at a later date.";
-    } else if (textBlob.includes("not interested") || textBlob.includes("no thanks") || textBlob.includes("stop")) {
+    } else if (textBlob.includes("not interested") || textBlob.includes("no thanks")) {
       status = "Not Interested";
-      summary = "Customer declined the offer and stated no current need.";
+      summary = "Customer declined the offer.";
     }
 
     setSalesStatus(status);
@@ -109,18 +112,19 @@ export default function SalesBotPage() {
     const newEntry = {
       id: Date.now(),
       date: new Date().toLocaleString(),
-      duration: formatTime(callDuration),
+      duration: formatTime(finalDurationSeconds),
       status: status,
       summary: summary,
       messages: [...messages],
-      recordingUrl: recordingUrl // populated if webhook or browser media stream is attached
+      recordingUrl: null // Will be populated when Vapi webhook syncs
     };
 
-    setCallHistory((prev) => {
-      const updated = [newEntry, ...prev];
-      localStorage.setItem("sankar_call_history", JSON.stringify(updated));
-      return updated;
-    });
+    setCallHistory((prev) => [newEntry, ...prev]);
+
+    // Poll the backend API after 10 seconds to catch the cloud recording URL from Vapi's webhook
+    setTimeout(() => {
+      fetchHistory();
+    }, 10000);
   };
 
   return (
@@ -134,7 +138,6 @@ export default function SalesBotPage() {
             <p className="text-slate-400 text-sm mt-1">Intern Assignment Submission Dashboard</p>
           </div>
           
-          {/* Call Controls */}
           <div className="flex items-center gap-4 bg-slate-900 border border-slate-800 p-3 rounded-xl shadow-lg">
             <div className="text-sm font-mono text-slate-300 px-2">
               Status: <span className={callActive ? "text-emerald-400 font-bold" : "text-slate-400"}>{callActive ? "Active Call" : "Idle"}</span>
@@ -160,17 +163,15 @@ export default function SalesBotPage() {
           </div>
         </header>
 
-        {/* Main Grid Workspace */}
+        {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* Left/Middle Column: Live Chat & Transcript */}
           <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col h-[500px] shadow-xl">
             <h2 className="text-lg font-semibold mb-4 text-slate-200 flex items-center gap-2">
               <span>💬</span> Live Conversation Transcript
             </h2>
             <div className="flex-1 overflow-y-auto space-y-3 pr-2 bg-slate-950/50 p-4 rounded-xl border border-slate-800/60">
               {messages.length === 0 ? (
-                <p className="text-slate-500 text-center py-32 italic">Start a call to begin the interactive voice conversation...</p>
+                <p className="text-slate-500 text-center py-32 italic">Start a call to begin...</p>
               ) : (
                 messages.map((msg, index) => (
                   <div key={index} className={`flex flex-col ${msg.role === "user" ? "items-end" : "items-start"}`}>
@@ -184,47 +185,31 @@ export default function SalesBotPage() {
             </div>
           </div>
 
-          {/* Right Column: Analytics, Status & Playback */}
           <div className="space-y-6">
-            
-            {/* Sales Status Card */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2">Sales Status</h2>
-              <div className={`inline-block px-3 py-1 rounded-full text-sm font-bold ${
-                salesStatus === "Converted" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" :
-                salesStatus === "Interested" ? "bg-blue-500/20 text-blue-400 border border-blue-500/30" :
-                salesStatus === "Demo Requested" ? "bg-purple-500/20 text-purple-400 border border-purple-500/30" :
-                salesStatus === "Follow-up Required" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" :
-                "bg-slate-800 text-slate-400 border border-slate-700"
-              }`}>
+              <div className="inline-block px-3 py-1 rounded-full text-sm font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
                 {salesStatus}
               </div>
             </div>
 
-            {/* AI Summary Card */}
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
               <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2">AI Summary</h2>
               <p className="text-sm text-slate-300 leading-relaxed bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
                 {aiSummary}
               </p>
             </div>
-
-            {/* Call Recording Playback Card */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-2">Call Recording Playback</h2>
-              {recordingUrl ? (
-                <audio controls src={recordingUrl} className="w-full mt-2" />
-              ) : (
-                <p className="text-xs text-slate-500 italic">Recordings become active once Vapi cloud artifact syncs or webhooks process call-end reports.</p>
-              )}
-            </div>
-
           </div>
         </div>
 
-        {/* Call History Table (Requirement #8) */}
+        {/* Call History Table */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
-          <h2 className="text-lg font-semibold mb-4 text-slate-200">📜 Previous Call History</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold text-slate-200">📜 Previous Call History</h2>
+            <button onClick={fetchHistory} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-slate-300 transition">
+              Refresh Recordings
+            </button>
+          </div>
           {callHistory.length === 0 ? (
             <p className="text-slate-500 text-sm py-4">No previous conversations recorded yet.</p>
           ) : (
@@ -236,7 +221,7 @@ export default function SalesBotPage() {
                     <th className="p-3">Duration</th>
                     <th className="p-3">Status</th>
                     <th className="p-3">Summary</th>
-                    <th className="p-3 rounded-r-lg">Recording</th>
+                    <th className="p-3 rounded-r-lg">Recording Playback</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
@@ -252,9 +237,9 @@ export default function SalesBotPage() {
                       <td className="p-3 text-xs max-w-xs truncate">{item.summary}</td>
                       <td className="p-3">
                         {item.recordingUrl ? (
-                          <audio controls src={item.recordingUrl} className="h-8 w-40" />
+                          <audio controls src={item.recordingUrl} className="h-8 w-44" />
                         ) : (
-                          <span className="text-slate-500 text-xs italic">Logged (Transcript Saved)</span>
+                          <span className="text-amber-400/80 text-xs italic">Processing cloud audio...</span>
                         )}
                       </td>
                     </tr>
