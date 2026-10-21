@@ -15,9 +15,16 @@ export async function POST(req) {
     if (message && message.type === 'end-of-call-report') {
       const callData = message.call || {};
       const vapiCallId = callData.id;
-      const duration = callData.durationSeconds || 0;
-      const transcript = message.transcript || '';
-      const vapiRecordingUrl = message.artifact?.recordingUrl || callData.recordingUrl;
+      const rawDuration = callData.durationSeconds || message.durationSeconds || callData.duration || 0;
+      const duration = Math.round(Number(rawDuration) || 0);
+      const transcript = message.transcript || callData.transcript || '';
+      
+      const vapiRecordingUrl = 
+        message.artifact?.recordingUrl || 
+        callData.artifact?.recordingUrl || 
+        callData.recordingUrl || 
+        message.recordingUrl || 
+        null;
       const summaryText = message.analysis?.summary || 'Call completed successfully.';
       
       // Use upsert on vapi_call_id to cleanly insert or update without primary key type mismatches
