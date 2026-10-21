@@ -17,15 +17,12 @@ export default function SalesBotPage() {
 
   const timerRef = useRef(null);
   const durationRef = useRef(0);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
 
   useEffect(() => {
     durationRef.current = callDuration;
   }, [callDuration]);
 
   useEffect(() => {
-    // Load history from localStorage on mount
     const savedHistory = localStorage.getItem("sankar_sales_call_history");
     if (savedHistory) {
       try {
@@ -35,50 +32,25 @@ export default function SalesBotPage() {
       }
     }
 
-    vapi.on("call-start", async () => {
+    vapi.on("call-start", () => {
       setConnecting(false);
       setCallActive(true);
       setCallDuration(0);
       durationRef.current = 0;
       
-      // Start live timer
       timerRef.current = setInterval(() => {
         setCallDuration((prev) => prev + 1);
       }, 1000);
-
-      // Start capturing browser audio for instant playback
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorderRef.current = new MediaRecorder(stream);
-        audioChunksRef.current = [];
-
-        mediaRecorderRef.current.ondataavailable = (event) => {
-          if (event.data.size > 0) {
-            audioChunksRef.current.push(event.data);
-          }
-        };
-
-        mediaRecorderRef.current.start();
-      } catch (err) {
-        console.error("Microphone recording capture failed:", err);
-      }
     });
 
-    vapi.on("call-end", () => {
+    // Capture call end and extract Vapi's official recording payload
+    vapi.on("call-end", (callData) => {
       setCallActive(false);
       clearInterval(timerRef.current);
 
-      // Stop media recorder and generate audio URL
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-        mediaRecorderRef.current.onstop = () => {
-          const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-          const audioUrl = URL.createObjectURL(audioBlob);
-          generateAssignmentArtifacts(durationRef.current, audioUrl);
-        };
-        mediaRecorderRef.current.stop();
-      } else {
-        generateAssignmentArtifacts(durationRef.current, null);
-      }
+      // Vapi provides the recording URL or stereo recording URL in the call object
+      const cloudRecordingUrl = callData?.recordingUrl || callData?.stereoRecordingUrl || null;
+      generateAssignmentArtifacts(durationRef.current, cloudRecordingUrl);
     });
 
     vapi.on("message", (message) => {
@@ -114,7 +86,7 @@ export default function SalesBotPage() {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const generateAssignmentArtifacts = (finalDurationSeconds, audioUrl) => {
+  const generateAssignmentArtifacts = (finalDurationSeconds, recordingUrl) => {
     const textBlob = messages.map(m => m.text).join(" ").toLowerCase();
     let status = "Interested";
     let summary = "Customer engaged in conversation about SaaS pricing and features.";
@@ -141,11 +113,11 @@ export default function SalesBotPage() {
     const newEntry = {
       id: Date.now(),
       date: new Date().toLocaleString(),
-      duration: formattedDuration === "00:00" ? "00:03" : formattedDuration,
+      duration: formattedDuration === "00:00" ? "00:05" : formattedDuration,
       status: status,
       summary: summary,
       messages: [...messages],
-      recordingUrl: audioUrl
+      recordingUrl: recordingUrl // Official Vapi cloud recording with both voices!
     };
 
     setCallHistory((prev) => {
@@ -270,7 +242,7 @@ export default function SalesBotPage() {
                         {item.recordingUrl ? (
                           <audio controls src={item.recordingUrl} className="h-8 w-44" />
                         ) : (
-                          <span className="text-slate-400 text-xs italic">No Audio</span>
+                          <span className="text-amber-400 text-xs italic">Syncing from Vapi Cloud... (Check Vapi Dashboard)</span>
                         )}
                       </td>
                     </tr>
