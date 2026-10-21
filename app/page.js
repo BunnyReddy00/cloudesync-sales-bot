@@ -47,6 +47,22 @@ export default function Home() {
     };
   }, []);
 
+  // Load Vapi Web SDK script dynamically
+  useEffect(() => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      window.vapiSDK?.run({
+        apiKey: '63c6ac0f-820b-4cd9-9cb2-c7356491ae85',// Replace with your Vapi Public Key
+        assistant: '7e379781-ecca-4f5a-98fc-47aba2c2fc44', // Replace with your Vapi Assistant ID
+        config: {}
+      });
+    };
+    document.body.appendChild(script);
+  }, []);
+
   const formatDuration = (seconds) => {
     if (!seconds || isNaN(seconds)) return '0:00';
     const mins = Math.floor(seconds / 60);
@@ -103,9 +119,9 @@ export default function Home() {
         {activeTab === 'live' ? (
           <div style={{ backgroundColor: '#fff', padding: '40px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <h2 style={{ fontSize: '20px', marginBottom: '15px', color: '#1e293b' }}>Live Voice Agent Widget</h2>
-            <p style={{ color: '#64748b', marginBottom: '25px' }}>Interact directly with your Vapi AI assistant below.</p>
+            <p style={{ color: '#64748b', marginBottom: '25px' }}>Click the Vapi floating button or widget below to start talking with your sales bot.</p>
             <div style={{ padding: '20px', border: '2px dashed #cbd5e1', borderRadius: '8px', display: 'inline-block', color: '#64748b' }}>
-              Vapi Web Widget Active / Configured in Assistant
+              Vapi widget loaded successfully. Look for the call button on your screen!
             </div>
           </div>
         ) : (
