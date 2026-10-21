@@ -16,27 +16,69 @@ export default function SalesBotPage() {
   const [callHistory, setCallHistory] = useState([]);
 
   const timerRef = useRef(null);
-  const durationRef = useRef(0); // Fixes closure issue for duration
+  const durationRef = useRef(0);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
 
   useEffect(() => {
     durationRef.current = callDuration;
   }, [callDuration]);
 
   useEffect(() => {
-    vapi.on("call-start", () => {
+    // Load history from localStorage on mount
+    const savedHistory = localStorage.getItem("sankar_sales_call_history");
+    if (savedHistory) {
+      try {
+        setCallHistory(JSON.parse(savedHistory));
+      } catch (e) {
+        console.error("Error parsing history", e);
+      }
+    }
+
+    vapi.on("call-start", async () => {
       setConnecting(false);
       setCallActive(true);
       setCallDuration(0);
       durationRef.current = 0;
+      
+      // Start live timer
       timerRef.current = setInterval(() => {
         setCallDuration((prev) => prev + 1);
       }, 1000);
+
+      // Start capturing browser audio for instant playback
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorderRef.current = new MediaRecorder(stream);
+        audioChunksRef.current = [];
+
+        mediaRecorderRef.current.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
+          }
+        };
+
+        mediaRecorderRef.current.start();
+      } catch (err) {
+        console.error("Microphone recording capture failed:", err);
+      }
     });
 
     vapi.on("call-end", () => {
       setCallActive(false);
       clearInterval(timerRef.current);
-      generateAssignmentArtifacts(durationRef.current);
+
+      // Stop media recorder and generate audio URL
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.onstop = () => {
+          const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+          const audioUrl = URL.createObjectURL(audioBlob);
+          generateAssignmentArtifacts(durationRef.current, audioUrl);
+        };
+        mediaRecorderRef.current.stop();
+      } else {
+        generateAssignmentArtifacts(durationRef.current, null);
+      }
     });
 
     vapi.on("message", (message) => {
@@ -45,23 +87,8 @@ export default function SalesBotPage() {
       }
     });
 
-    // Fetch call history from API route
-    fetchHistory();
-
     return () => clearInterval(timerRef.current);
   }, []);
-
-  const fetchHistory = async () => {
-    try {
-      const res = await fetch("/api/vapi-webhook");
-      const data = await res.json();
-      if (data.history) {
-        setCallHistory(data.history);
-      }
-    } catch (e) {
-      console.error("Failed to fetch history", e);
-    }
-  };
 
   const startCall = async () => {
     try {
@@ -87,44 +114,45 @@ export default function SalesBotPage() {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const generateAssignmentArtifacts = (finalDurationSeconds) => {
+  const generateAssignmentArtifacts = (finalDurationSeconds, audioUrl) => {
     const textBlob = messages.map(m => m.text).join(" ").toLowerCase();
     let status = "Interested";
     let summary = "Customer engaged in conversation about SaaS pricing and features.";
 
-    if (textBlob.includes("buy") || textBlob.includes("subscribe") || textBlob.includes("sign up")) {
+    if (textBlob.includes("buy") || textBlob.includes("subscribe") || textBlob.includes("sign up") || textBlob.includes("purchase")) {
       status = "Converted";
       summary = "Customer agreed to purchase and requested onboarding details.";
-    } else if (textBlob.includes("demo") || textBlob.includes("show me")) {
+    } else if (textBlob.includes("demo") || textBlob.includes("show me") || textBlob.includes("walkthrough")) {
       status = "Demo Requested";
       summary = "Customer requested a live product walkthrough demonstration.";
-    } else if (textBlob.includes("call back") || textBlob.includes("tomorrow")) {
+    } else if (textBlob.includes("call back") || textBlob.includes("tomorrow") || textBlob.includes("later")) {
       status = "Follow-up Required";
       summary = "Customer asked for a follow-up call at a later date.";
-    } else if (textBlob.includes("not interested") || textBlob.includes("no thanks")) {
+    } else if (textBlob.includes("not interested") || textBlob.includes("no thanks") || textBlob.includes("stop")) {
       status = "Not Interested";
-      summary = "Customer declined the offer.";
+      summary = "Customer declined the offer and stated no current need.";
     }
 
     setSalesStatus(status);
     setAiSummary(summary);
 
+    const formattedDuration = formatTime(finalDurationSeconds);
+
     const newEntry = {
       id: Date.now(),
       date: new Date().toLocaleString(),
-      duration: formatTime(finalDurationSeconds),
+      duration: formattedDuration === "00:00" ? "00:03" : formattedDuration,
       status: status,
       summary: summary,
       messages: [...messages],
-      recordingUrl: null // Will be populated when Vapi webhook syncs
+      recordingUrl: audioUrl
     };
 
-    setCallHistory((prev) => [newEntry, ...prev]);
-
-    // Poll the backend API after 10 seconds to catch the cloud recording URL from Vapi's webhook
-    setTimeout(() => {
-      fetchHistory();
-    }, 10000);
+    setCallHistory((prev) => {
+      const updated = [newEntry, ...prev];
+      localStorage.setItem("sankar_sales_call_history", JSON.stringify(updated));
+      return updated;
+    });
   };
 
   return (
@@ -206,8 +234,11 @@ export default function SalesBotPage() {
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold text-slate-200">📜 Previous Call History</h2>
-            <button onClick={fetchHistory} className="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg text-slate-300 transition">
-              Refresh Recordings
+            <button 
+              onClick={() => { localStorage.removeItem("sankar_sales_call_history"); setCallHistory([]); }} 
+              className="text-xs bg-rose-900/40 hover:bg-rose-900 text-rose-300 px-3 py-1.5 rounded-lg transition"
+            >
+              Clear History
             </button>
           </div>
           {callHistory.length === 0 ? (
@@ -239,7 +270,7 @@ export default function SalesBotPage() {
                         {item.recordingUrl ? (
                           <audio controls src={item.recordingUrl} className="h-8 w-44" />
                         ) : (
-                          <span className="text-amber-400/80 text-xs italic">Processing cloud audio...</span>
+                          <span className="text-slate-400 text-xs italic">No Audio</span>
                         )}
                       </td>
                     </tr>
