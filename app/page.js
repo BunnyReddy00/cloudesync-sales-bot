@@ -1,19 +1,27 @@
-// Load Vapi Web SDK script dynamically with live transcript config
+"use client";
+
+import { useEffect, useState } from "react";
+
+export default function Page() {
+  const [isClient, setIsClient] = useState(false);
+
+  // Ensures client-side execution for browser-dependent APIs (like audio recording)
   useEffect(() => {
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/gh/VapiAI/html-script-tag@latest/dist/assets/index.js';
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      window.vapiSDK?.run({
-        apiKey: '63c6ac0f-820b-4cd9-9cb2-c7356491ae85', // Your Vapi Public Key
-        assistant: '7e379781-ecca-4f5a-98fc-47aba2c2fc44', // Your Vapi Assistant ID
-        config: {
-          // Enable visual indicators/transcripts if supported by your widget version
-          position: "bottom-right",
-          语言: "en"
-        }
-      });
-    };
-    document.body.appendChild(script);
+    setIsClient(true);
   }, []);
+
+  if (!isClient) {
+    return null; // Prevents server-side hydration mismatches
+  }
+
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-between p-24">
+      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm">
+        <h1 className="text-4xl font-bold mb-4">Audio Recorder / Player</h1>
+        <p className="text-gray-600">
+          Your audio recording and playback logic goes here.
+        </p>
+      </div>
+    </main>
+  );
+}
