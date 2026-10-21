@@ -43,14 +43,20 @@ export default function SalesBotPage() {
       }, 1000);
     });
 
-    // Capture call end and extract Vapi's official recording payload
-    vapi.on("call-end", (callData) => {
+    // Capture call end and extract Vapi's stereo/cloud recording URL
+    vapi.on("call-end", (payload) => {
       setCallActive(false);
       clearInterval(timerRef.current);
 
-      // Vapi provides the recording URL or stereo recording URL in the call object
-      const cloudRecordingUrl = callData?.recordingUrl || callData?.stereoRecordingUrl || null;
-      generateAssignmentArtifacts(durationRef.current, cloudRecordingUrl);
+      // Extract recording URL from Vapi event payload structure
+      const recordingUrl = 
+        payload?.recordingUrl || 
+        payload?.stereoRecordingUrl || 
+        payload?.artifact?.recordingUrl || 
+        payload?.artifact?.stereoRecordingUrl || 
+        null;
+
+      generateAssignmentArtifacts(durationRef.current, recordingUrl);
     });
 
     vapi.on("message", (message) => {
@@ -117,7 +123,7 @@ export default function SalesBotPage() {
       status: status,
       summary: summary,
       messages: [...messages],
-      recordingUrl: recordingUrl // Official Vapi cloud recording with both voices!
+      recordingUrl: recordingUrl
     };
 
     setCallHistory((prev) => {
@@ -242,7 +248,15 @@ export default function SalesBotPage() {
                         {item.recordingUrl ? (
                           <audio controls src={item.recordingUrl} className="h-8 w-44" />
                         ) : (
-                          <span className="text-amber-400 text-xs italic">Syncing from Vapi Cloud... (Check Vapi Dashboard)</span>
+                          <button
+                            onClick={() => {
+                              // Fallback helper if URL wasn't caught immediately on end event
+                              alert("Vapi generates cloud recordings shortly after call completion. You can also view and play this call directly in your Vapi Dashboard Calls log!");
+                            }}
+                            className="text-xs bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 border border-amber-500/40 px-3 py-1.5 rounded-lg transition"
+                          >
+                            Check Recording
+                          </button>
                         )}
                       </td>
                     </tr>
