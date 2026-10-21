@@ -35,10 +35,9 @@ export default function Home() {
 
     fetchCalls();
 
-    // Subscribe to real-time changes in Supabase
     const subscription = supabase
       .channel('calls-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'calls' }, (payload) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'calls' }, () => {
         fetchCalls();
       })
       .subscribe();
@@ -105,7 +104,6 @@ export default function Home() {
           <div style={{ backgroundColor: '#fff', padding: '40px', borderRadius: '12px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <h2 style={{ fontSize: '20px', marginBottom: '15px', color: '#1e293b' }}>Live Voice Agent Widget</h2>
             <p style={{ color: '#64748b', marginBottom: '25px' }}>Interact directly with your Vapi AI assistant below.</p>
-            {/* Embed or trigger your Vapi Web SDK widget here */}
             <div style={{ padding: '20px', border: '2px dashed #cbd5e1', borderRadius: '8px', display: 'inline-block', color: '#64748b' }}>
               Vapi Web Widget Active / Configured in Assistant
             </div>
@@ -135,4 +133,45 @@ export default function Home() {
                   <tbody>
                     {calls.map((call) => (
                       <tr key={call.id || call.vapi_call_id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                        <td style={{
+                        <td style={{ padding: '16px', color: '#334155' }}>{formatDate(call.created_at)}</td>
+                        <td style={{ padding: '16px', color: '#334155' }}>{formatDuration(call.duration)}</td>
+                        <td style={{ padding: '16px' }}>
+                          <span style={{
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '12px',
+                            fontWeight: '500',
+                            backgroundColor: call.sales_status === 'Completed' ? '#dcfce7' : '#fef9c3',
+                            color: call.sales_status === 'Completed' ? '#166534' : '#854d0e'
+                          }}>
+                            {call.sales_status || 'Completed'}
+                          </span>
+                        </td>
+                        <td style={{ padding: '16px', color: '#475569', maxWidth: '350px' }}>{call.summary || 'Call completed successfully.'}</td>
+                        <td style={{ padding: '16px' }}>
+                          {call.recording_url ? (
+                            <audio 
+                              controls 
+                              preload="none" 
+                              src={call.recording_url} 
+                              style={{ width: '200px', height: '36px' }}
+                            >
+                              Your browser does not support the audio element.
+                            </audio>
+                          ) : (
+                            <span style={{ color: '#94a3b8', fontSize: '13px' }}>Recording not received</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
+    </main>
+  );
+}
