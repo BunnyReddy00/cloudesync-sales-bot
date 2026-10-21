@@ -184,7 +184,7 @@ export async function POST(req) {
       const { error: recordingUpdateError } = await supabase
         .from('calls')
         .update({ recording_url: recordingReference })
-        .eq('id', callId);
+        .eq('vapi_call_id', callId);
       if (recordingUpdateError) throw recordingUpdateError;
     }
 
