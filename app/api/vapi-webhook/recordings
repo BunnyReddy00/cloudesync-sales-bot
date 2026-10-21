@@ -9,18 +9,19 @@ export async function GET(req) {
   }
 
   try {
-    // Request the stereo or mono recording from Vapi's authenticated artifact endpoint
     const vapiRes = await fetch(`https://api.vapi.ai/call/${callId}/stereo-recording`, {
       headers: {
         'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}`
       },
-      redirect: 'manual' // Capture the 302 redirect from Vapi
+      redirect: 'manual'
     });
 
     const location = vapiRes.headers.get('location');
     if (location) {
-      // Redirect the browser to the short-lived signed URL provided by Vapi
-      return NextResponse.redirect(location);
+      const res = NextResponse.redirect(location);
+      // Add CORS headers so the browser allows audio streaming
+      res.headers.set('Access-Control-Allow-Origin', '*');
+      return res;
     }
 
     return NextResponse.json({ error: 'Recording not found' }, { status: 404 });

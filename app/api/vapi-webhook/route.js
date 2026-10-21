@@ -20,8 +20,10 @@ export async function POST(req) {
       const transcript = message.transcript || callData.transcript || '';
       const summaryText = message.analysis?.summary || 'Call completed successfully.';
 
-      // Store the proxy path referencing our new API endpoint
-      const proxyRecordingUrl = vapiCallId ? `/api/recording?id=${vapiCallId}` : null;
+      // Use your exact production domain for the proxy URL
+      const recordingUrl = vapiCallId 
+        ? `https://cloudsync-sales-bot-git-main-kanyarashi15.vercel.app/api/recording?id=${vapiCallId}` 
+        : null;
 
       const { error } = await supabase
         .from('calls')
@@ -30,7 +32,7 @@ export async function POST(req) {
           duration: duration,
           summary: summaryText,
           transcript: transcript,
-          recording_url: proxyRecordingUrl,
+          recording_url: recordingUrl,
           sales_status: 'Completed'
         }, {
           onConflict: 'vapi_call_id'
