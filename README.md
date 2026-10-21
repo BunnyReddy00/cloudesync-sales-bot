@@ -6,11 +6,11 @@
 2. Install dependencies with `npm install`.
 3. Start the development server with `npm run dev` and open `http://localhost:3000`.
 
-Configure the Vapi end-of-call webhook to use the publicly reachable URL
+In the Vapi assistant's Server URL settings, set the publicly reachable URL
 `https://<your-domain>/api/vapi-webhook` and enable the `end-of-call-report`
-event. Make sure call recording is enabled in the Vapi assistant. A local
-`localhost` URL cannot receive Vapi's cloud webhook; use a
-deployed URL or a secure development tunnel. The Supabase
+server message. Make sure call recording is enabled in the Vapi assistant. A
+local `localhost` URL cannot receive Vapi's cloud webhook; use a deployed URL
+or a secure development tunnel. The Supabase
 project must contain a `calls` table with the fields used by the page and webhook:
 `id`, `created_at`, `vapi_call_id`, `duration_seconds`, `transcript`, `summary`,
 `sales_status`, and `recording_url`.
@@ -31,6 +31,9 @@ The anon key must have permission to insert rows into `calls` for the browser
 save when the web call ends. The public Vapi webhook then enriches the row with
 the full transcript, privately stored recording, and AI summary. History
 refreshes automatically while open.
+The webhook reads Vapi's report recording fields (`artifact.recording.stereoUrl`
+or the mono recording URLs) and copies the audio into private Supabase Storage
+for replay from Call History.
 
 The live-call page lets callers choose English, Hindi, or Telugu. The selected
 language is used for the greeting and added as an instruction to the existing

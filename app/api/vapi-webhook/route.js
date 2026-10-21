@@ -81,7 +81,12 @@ export async function POST(req) {
     const artifact = message.artifact || {};
     const transcript =
       artifact.transcript || message.transcript || 'No transcript available.';
+    const recording = artifact.recording || {};
     const vapiRecordingUrl =
+      recording.stereoUrl ||
+      recording.mono?.combinedUrl ||
+      recording.mono?.assistantUrl ||
+      recording.mono?.customerUrl ||
       artifact.recordingUrl ||
       artifact.stereoRecordingUrl ||
       message.recordingUrl ||

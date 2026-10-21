@@ -441,6 +441,14 @@ export default function Home() {
                 {historyError}
               </div>
             )}
+            {callsHistory.some((call) => !call.recording_url) && (
+              <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Some calls have no recording yet. Configure the Vapi assistant to
+                send end-of-call reports to your public HTTPS
+                <code className="mx-1">/api/vapi-webhook</code>
+                URL. Vapi cannot send reports to localhost.
+              </div>
+            )}
             <table className="w-full text-left border-collapse text-sm">
               <thead className="bg-slate-100 border-b text-slate-600 uppercase text-xs font-semibold">
                 <tr>
@@ -473,9 +481,17 @@ export default function Home() {
                       <td className="p-4 text-slate-700 max-w-md">{c.summary || 'Generating summary...'}</td>
                       <td className="p-4">
                         {c.recording_url ? (
-                          <audio controls src={c.recording_url} className="h-8 w-44" />
+                          <audio
+                            key={c.recording_url}
+                            controls
+                            preload="none"
+                            src={c.recording_url}
+                            className="h-8 w-44"
+                          />
                         ) : (
-                          <span className="text-slate-400 text-xs">No Audio</span>
+                          <span className="text-slate-500 text-xs">
+                            Recording not received
+                          </span>
                         )}
                       </td>
                     </tr>
