@@ -9,56 +9,64 @@ const supabase = createClient(
 export async function POST(req) {
   try {
     const body = await req.json();
-    
-    // Check if it's an end-of-call report from Vapi
     const message = body.message;
+
     if (message && message.type === 'end-of-call-report') {
-    console.log('FULL VAPI MESSAGE:', JSON.stringify(message, null, 2));
       const callData = message.call || {};
       const vapiCallId = callData.id;
+      
       const rawDuration = callData.durationSeconds || message.durationSeconds || callData.duration || 0;
       const duration = Math.round(Number(rawDuration) || 0);
       const transcript = message.transcript || callData.transcript || '';
-      
-      const vapiRecordingUrl = 
-      message.artifact?.recordingUrl || 
-      callData.artifact?.recordingUrl || 
-      message.recordingUrl || 
-      callData.recordingUrl || 
-      message.artifact?.stereoRecordingUrl || 
-      callData.artifact?.stereoRecordingUrl ||
-      message.stereoRecordingUrl ||
-      callData.stereoRecordingUrl ||
-      null;
       const summaryText = message.analysis?.summary || 'Call completed successfully.';
-      
-      // Use upsert on vapi_call_id to cleanly insert or update without primary key type mismatches
-      const { error: upsertError } = await supabase
-        .from('calls')
-        .upsert(
-          [
-            {
-              vapi_call_id: vapiCallId,
-              duration_seconds: duration,
-              transcript: transcript,
-              recording_url: vapiRecordingUrl,
-              sales_status: 'Completed',
-              summary: summaryText
-            }
-          ],
-          { onConflict: 'vapi_call_id' }
-        );
 
-      if (upsertError) {
-        console.error('Supabase Upsert Error:', upsertError);
+      // 1. Try extracting from webhook message payload first
+      let vapiRecordingUrl = 
+        message.artifact?.recordingUrl || 
+        callData.artifact?.recordingUrl || 
+        message.recordingUrl || 
+        callData.recordingUrl || 
+        null;
+
+      // 2. If recordingUrl is missing, fetch the call directly from Vapi API (handles processing delay)
+      if (!vapiRecordingUrl && vapiCallId && process.env.VAPI_PRIVATE_API_KEY) {
+        try {
+          const vapiRes = await fetch(`https://api.vapi.ai/call/${vapiCallId}`, {
+            headers: {
+              'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}`
+            }
+          });
+          if (vapiRes.ok) {
+            const vapiJson = await vapiRes.json();
+            vapiRecordingUrl = vapiJson.artifact?.recordingUrl || vapiJson.recordingUrl || vapiJson.stereoRecordingUrl || null;
+          }
+        } catch (err) {
+          console.error('Error fetching call from Vapi API:', err);
+        }
+      }
+
+      // Upsert into Supabase
+      const { error } = await supabase
+        .from('calls')
+        .upsert({
+          vapi_call_id: vapiCallId,
+          duration: duration,
+          summary: summaryText,
+          transcript: transcript,
+          recording_url: vapiRecordingUrl,
+          sales_status: 'Completed'
+        }, {
+          onConflict: 'vapi_call_id'
+        });
+
+      if (error) {
+        console.error('Supabase upsert error:', error);
       }
     }
 
-    // Always return a clean 200 OK so Vapi registers successful webhook delivery
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (err) {
-    console.error('Webhook Internal Error:', err);
-    // Return 200 even on catch to prevent Vapi retry spam and 500 logs
-    return NextResponse.json({ success: true, error: err.message }, { status: 200 });
+    console.error('Webhook processing error:', err);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
