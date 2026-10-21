@@ -168,10 +168,10 @@ export async function POST(req) {
           summary: null,
           sales_status: null,
         })
-        .select('id')
+        .select('vapi_call_id')
         .single();
       if (insertError) throw insertError;
-      callId = call.id;
+      callId = call.vapi_call_id;
     }
 
     const recordingReference = await storeRecording(
