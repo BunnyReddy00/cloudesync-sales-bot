@@ -158,14 +158,39 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [callStatus]);
 
-  const fetchHistory = useCallback(async () => {
+  const fetchHistory = useCallback(async ({ preserveRecordingUrls = false } = {}) => {
     try {
       const response = await fetch('/api/calls', { cache: 'no-store' });
       const result = await response.json();
       if (!response.ok) {
         throw new Error(result.error || 'Call history could not be loaded.');
       }
-      setCallsHistory(result.calls || []);
+      setCallsHistory((previousCalls) => {
+        if (!preserveRecordingUrls) return result.calls || [];
+
+        const previousById = new Map(
+          previousCalls.map((call) => [call.id, call]),
+        );
+        return (result.calls || []).map((call) => {
+          const previous = previousById.get(call.id);
+          const previousExpiry = Date.parse(
+            previous?.recording_url_expires_at || '',
+          );
+          const previousUrlIsFresh =
+            previous?.recording_url &&
+            (!Number.isFinite(previousExpiry) ||
+              previousExpiry > Date.now() + 60_000);
+
+          return previousUrlIsFresh && call.recording_url
+            ? {
+                ...call,
+                recording_url: previous.recording_url,
+                recording_url_expires_at:
+                  previous.recording_url_expires_at,
+              }
+            : call;
+        });
+      });
       setHistoryError(result.warning || '');
     } catch (error) {
       console.error('Call history error:', error);
@@ -229,7 +254,10 @@ export default function Home() {
 
   useEffect(() => {
     if (activeTab !== 'history') return undefined;
-    const refreshTimer = setInterval(() => void fetchHistory(), 5000);
+    const refreshTimer = setInterval(
+      () => void fetchHistory({ preserveRecordingUrls: true }),
+      5000,
+    );
     return () => clearInterval(refreshTimer);
   }, [activeTab, fetchHistory]);
 
@@ -443,10 +471,16 @@ export default function Home() {
             )}
             {callsHistory.some((call) => !call.recording_url) && (
               <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                Some calls have no recording yet. Configure the Vapi assistant to
-                send end-of-call reports to your public HTTPS
-                <code className="mx-1">/api/vapi-webhook</code>
-                URL. Vapi cannot send reports to localhost.
+                One or more calls have no recording. For new calls, set the
+                Vapi assistant&apos;s Server URL to
+                <code className="mx-1 inline-block">
+                  https://&lt;your-deployed-domain&gt;/api/vapi-webhook
+                </code>
+                , subscribe to <code>end-of-call-report</code>, and enable call
+                recording. Vapi cannot send reports to localhost. This will not
+                add recordings to calls made before setup; if the URL is already
+                configured, check Vapi&apos;s webhook delivery logs for failed
+                reports.
               </div>
             )}
             <table className="w-full text-left border-collapse text-sm">

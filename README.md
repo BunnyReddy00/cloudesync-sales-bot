@@ -2,7 +2,7 @@
 
 ## Run locally
 
-1. Copy `.env.example` to `.env.local` and add the Vapi, Supabase, and OpenAI credentials.
+1. Copy `.env.example` to `.env.local` and add the Vapi and Supabase credentials. `OPENAI_API_KEY` is optional and is used only to generate call summaries.
 2. Install dependencies with `npm install`.
 3. Start the development server with `npm run dev` and open `http://localhost:3000`.
 
@@ -29,11 +29,12 @@ the local `localhost` server cannot receive Vapi reports.
 
 The anon key must have permission to insert rows into `calls` for the browser
 save when the web call ends. The public Vapi webhook then enriches the row with
-the full transcript, privately stored recording, and AI summary. History
+the full transcript and privately stored recording; if `OPENAI_API_KEY` is set,
+it also generates an AI summary. History
 refreshes automatically while open.
-The webhook reads Vapi's report recording fields (`artifact.recording.stereoUrl`
-or the mono recording URLs) and copies the audio into private Supabase Storage
-for replay from Call History.
+The webhook reads Vapi's report recording fields, including presigned stereo
+and mono artifact URLs, and copies the audio into private Supabase Storage for
+replay from Call History.
 
 The live-call page lets callers choose English, Hindi, or Telugu. The selected
 language is used for the greeting and added as an instruction to the existing

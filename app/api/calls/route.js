@@ -45,7 +45,13 @@ export async function GET() {
           .createSignedUrl(storagePath, 60 * 60);
         if (signedUrlError) throw signedUrlError;
 
-        return { ...call, recording_url: data.signedUrl };
+        return {
+          ...call,
+          recording_url: data.signedUrl,
+          recording_url_expires_at: new Date(
+            Date.now() + 60 * 60 * 1000,
+          ).toISOString(),
+        };
       }),
     );
 

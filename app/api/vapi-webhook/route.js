@@ -16,6 +16,10 @@ const RECORDING_HOSTS = new Set(['storage.vapi.ai']);
 
 function getRecordingExtension(contentType) {
   const mediaType = contentType.split(';', 1)[0].trim().toLowerCase();
+  if (!mediaType || mediaType === 'application/octet-stream') {
+    return { extension: 'mp3', mediaType: 'audio/mpeg' };
+  }
+
   const extensions = {
     'audio/mpeg': 'mp3',
     'audio/mp4': 'm4a',
@@ -63,6 +67,9 @@ export async function POST(req) {
     const body = await req.json();
 
     if (body.message?.type !== 'end-of-call-report') {
+      console.info('Ignoring Vapi webhook event', {
+        type: body.message?.type || body.type || 'unknown',
+      });
       return NextResponse.json({ success: true, ignored: true }, { status: 200 });
     }
 
@@ -71,31 +78,56 @@ export async function POST(req) {
       process.env.SUPABASE_SERVICE_ROLE_KEY;
     const bucket = process.env.SUPABASE_RECORDINGS_BUCKET || 'call-recordings';
     const openAiKey = process.env.OPENAI_API_KEY;
-    if (!supabaseUrl || !supabaseKey || !openAiKey) {
+    if (!supabaseUrl || !supabaseKey) {
       throw new Error(
-        'Missing Supabase URL, SUPABASE_SERVICE_ROLE_KEY, or OPENAI_API_KEY configuration.',
+        'Missing Supabase URL or SUPABASE_SERVICE_ROLE_KEY configuration.',
       );
     }
 
     const message = body.message;
-    const artifact = message.artifact || {};
+    const artifact = {
+      ...(message.call?.artifact || {}),
+      ...(message.artifact || {}),
+    };
     const transcript =
       artifact.transcript || message.transcript || 'No transcript available.';
     const recording = artifact.recording || {};
     const vapiRecordingUrl =
+      artifact.presignedStereoUrl ||
+      artifact.presignedMonoUrl ||
+      artifact.presignedAssistantUrl ||
+      artifact.presignedCustomerUrl ||
       recording.stereoUrl ||
       recording.mono?.combinedUrl ||
       recording.mono?.assistantUrl ||
       recording.mono?.customerUrl ||
+      recording.presignedStereoUrl ||
+      recording.presignedMonoUrl ||
+      recording.presignedAssistantUrl ||
+      recording.presignedCustomerUrl ||
       artifact.recordingUrl ||
       artifact.stereoRecordingUrl ||
       message.recordingUrl ||
       '';
+    const recordingHostname = vapiRecordingUrl
+      ? new URL(vapiRecordingUrl).hostname
+      : '';
     const duration = Number(message.durationSeconds) || 0;
     const vapiCallId = message.call?.id;
     console.info('Vapi end-of-call report received', {
       callId: vapiCallId,
+      recordingHostname,
       hasRecording: Boolean(vapiRecordingUrl),
+      hasStereoRecording: Boolean(recording.stereoUrl),
+      hasCombinedMonoRecording: Boolean(recording.mono?.combinedUrl),
+      hasAssistantMonoRecording: Boolean(recording.mono?.assistantUrl),
+      hasCustomerMonoRecording: Boolean(recording.mono?.customerUrl),
+      hasPresignedRecording: Boolean(
+        artifact.presignedStereoUrl ||
+          artifact.presignedMonoUrl ||
+          artifact.presignedAssistantUrl ||
+          artifact.presignedCustomerUrl,
+      ),
     });
 
     if (!vapiCallId || !/^[A-Za-z0-9_-]+$/.test(vapiCallId)) {
@@ -156,41 +188,45 @@ export async function POST(req) {
       if (recordingUpdateError) throw recordingUpdateError;
     }
 
-    try {
-      const openai = new OpenAI({ apiKey: openAiKey });
-      const aiResponse = await openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'system',
-            content: `Analyze the sales call transcript and return a JSON object with a short 2-3 sentence summary and a sales_status chosen from: ${SALES_STATUSES.join(', ')}.`,
-          },
-          { role: 'user', content: transcript },
-        ],
-        response_format: { type: 'json_object' },
-      });
+    if (openAiKey) {
+      try {
+        const openai = new OpenAI({ apiKey: openAiKey });
+        const aiResponse = await openai.chat.completions.create({
+          model: 'gpt-4o',
+          messages: [
+            {
+              role: 'system',
+              content: `Analyze the sales call transcript and return a JSON object with a short 2-3 sentence summary and a sales_status chosen from: ${SALES_STATUSES.join(', ')}.`,
+            },
+            { role: 'user', content: transcript },
+          ],
+          response_format: { type: 'json_object' },
+        });
 
-      const content = aiResponse.choices[0]?.message?.content;
-      if (!content) throw new Error('OpenAI returned an empty call analysis.');
+        const content = aiResponse.choices[0]?.message?.content;
+        if (!content) throw new Error('OpenAI returned an empty call analysis.');
 
-      const analysis = JSON.parse(content);
-      if (
-        typeof analysis.summary !== 'string' ||
-        !SALES_STATUSES.includes(analysis.sales_status)
-      ) {
-        throw new Error('OpenAI returned call analysis in an invalid format.');
+        const analysis = JSON.parse(content);
+        if (
+          typeof analysis.summary !== 'string' ||
+          !SALES_STATUSES.includes(analysis.sales_status)
+        ) {
+          throw new Error('OpenAI returned call analysis in an invalid format.');
+        }
+
+        const { error: updateError } = await supabase
+          .from('calls')
+          .update({
+            summary: analysis.summary,
+            sales_status: analysis.sales_status,
+          })
+          .eq('id', callId);
+        if (updateError) throw updateError;
+      } catch (error) {
+        console.error('Call saved, but AI analysis failed:', error);
       }
-
-      const { error: updateError } = await supabase
-        .from('calls')
-        .update({
-          summary: analysis.summary,
-          sales_status: analysis.sales_status,
-        })
-        .eq('id', callId);
-      if (updateError) throw updateError;
-    } catch (error) {
-      console.error('Call saved, but AI analysis failed:', error);
+    } else {
+      console.warn('Call saved without AI analysis because OPENAI_API_KEY is not configured.');
     }
 
     return NextResponse.json({ success: true }, { status: 200 });
