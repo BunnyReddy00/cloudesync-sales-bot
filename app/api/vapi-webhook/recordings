@@ -1,0 +1,31 @@
+import { NextResponse } from 'next/server';
+
+export async function GET(req) {
+  const { searchParams } = new URL(req.url);
+  const callId = searchParams.get('id');
+
+  if (!callId) {
+    return NextResponse.json({ error: 'Missing call ID' }, { status: 400 });
+  }
+
+  try {
+    // Request the stereo or mono recording from Vapi's authenticated artifact endpoint
+    const vapiRes = await fetch(`https://api.vapi.ai/call/${callId}/stereo-recording`, {
+      headers: {
+        'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}`
+      },
+      redirect: 'manual' // Capture the 302 redirect from Vapi
+    });
+
+    const location = vapiRes.headers.get('location');
+    if (location) {
+      // Redirect the browser to the short-lived signed URL provided by Vapi
+      return NextResponse.redirect(location);
+    }
+
+    return NextResponse.json({ error: 'Recording not found' }, { status: 404 });
+  } catch (err) {
+    console.error('Error proxying recording:', err);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}

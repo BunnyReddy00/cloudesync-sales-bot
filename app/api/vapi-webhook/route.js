@@ -20,32 +20,9 @@ export async function POST(req) {
       const transcript = message.transcript || callData.transcript || '';
       const summaryText = message.analysis?.summary || 'Call completed successfully.';
 
-      // 1. Try extracting from webhook message payload first
-      let vapiRecordingUrl = 
-        message.artifact?.recordingUrl || 
-        callData.artifact?.recordingUrl || 
-        message.recordingUrl || 
-        callData.recordingUrl || 
-        null;
+      // Store the proxy path referencing our new API endpoint
+      const proxyRecordingUrl = vapiCallId ? `/api/recording?id=${vapiCallId}` : null;
 
-      // 2. If recordingUrl is missing, fetch the call directly from Vapi API (handles processing delay)
-      if (!vapiRecordingUrl && vapiCallId && process.env.VAPI_PRIVATE_API_KEY) {
-        try {
-          const vapiRes = await fetch(`https://api.vapi.ai/call/${vapiCallId}`, {
-            headers: {
-              'Authorization': `Bearer ${process.env.VAPI_PRIVATE_API_KEY}`
-            }
-          });
-          if (vapiRes.ok) {
-            const vapiJson = await vapiRes.json();
-            vapiRecordingUrl = vapiJson.artifact?.recordingUrl || vapiJson.recordingUrl || vapiJson.stereoRecordingUrl || null;
-          }
-        } catch (err) {
-          console.error('Error fetching call from Vapi API:', err);
-        }
-      }
-
-      // Upsert into Supabase
       const { error } = await supabase
         .from('calls')
         .upsert({
@@ -53,7 +30,7 @@ export async function POST(req) {
           duration: duration,
           summary: summaryText,
           transcript: transcript,
-          recording_url: vapiRecordingUrl,
+          recording_url: proxyRecordingUrl,
           sales_status: 'Completed'
         }, {
           onConflict: 'vapi_call_id'
