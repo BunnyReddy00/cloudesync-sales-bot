@@ -48,12 +48,12 @@ export default function SalesBotPage() {
       setCallActive(false);
       clearInterval(timerRef.current);
 
-      // Extract Call ID safely from any structure Vapi provides
+      // Get callId from payload or from callIdRef saved during startCall
       const callId = 
-        payload?.call?.id || 
         payload?.id || 
+        payload?.call?.id || 
         payload?.callId || 
-        (typeof payload === "string" ? payload : null);
+        callIdRef.current;
 
       generateAssignmentArtifacts(durationRef.current, callId);
     });
@@ -66,20 +66,23 @@ export default function SalesBotPage() {
     return () => clearInterval(timerRef.current);
   }, []);
 
-  const startCall = async () => {
+ const startCall = async () => {
     try {
       setConnecting(true);
-      setMessages([]);
-      setAiSummary("Analyzing conversation...");
-      const assistantId = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID || "7e379781-ecca-4f5a-98fc-47aba2c2fc44";
-      await vapi.start(assistantId);
+      // vapi.start() returns the call object containing the Call ID!
+      const res = await vapi.start(process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID || "YOUR_ASSISTANT_ID");
+      
+      if (res?.id) {
+        callIdRef.current = res.id;
+      }
+      
+      setConnecting(false);
+      setCallActive(true);
     } catch (err) {
       console.error("Failed to start call:", err);
       setConnecting(false);
-      alert("Could not start call. Check your Vapi Public Key & Assistant ID.");
     }
   };
-
   const endCall = () => {
     vapi.stop();
   };
@@ -228,16 +231,23 @@ export default function SalesBotPage() {
                           {item.status}
                         </span>
                       </td>
-                     <td className="p-3">
-                  {item.vapiCallId ? (
-                    <audio 
-                      controls 
-                      src={`/api/recording/${item.vapiCallId}`} 
-                      className="h-8 w-44" 
-                    />
-                  ) : (
-                    <span className="text-slate-400 text-xs italic">Syncing Audio...</span>
-                  )}
+                    <td className="p-3">
+  {item.vapiCallId ? (
+    <audio 
+      controls 
+      src={`/api/recording/${item.vapiCallId}`} 
+      className="h-8 w-44" 
+    />
+  ) : item.recordingUrl ? (
+    <audio 
+      controls 
+      src={item.recordingUrl} 
+      className="h-8 w-44" 
+    />
+  ) : (
+    <span className="text-slate-400 text-xs italic">Syncing Audio...</span>
+  )}
+</td>
                     </td>
                     </tr>
                   ))}
