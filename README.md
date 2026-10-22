@@ -36,6 +36,11 @@ The webhook reads Vapi's report recording fields, including presigned stereo
 and mono artifact URLs, and copies the audio into private Supabase Storage for
 replay from Call History.
 
+The local call-history player also streams Vapi recordings through
+`/api/recording/[id]`. Set `VAPI_PRIVATE_API_KEY` as a server-side environment
+variable so this route can retrieve the recording. Do not expose it with a
+`NEXT_PUBLIC_` prefix.
+
 The live-call page lets callers choose English, Hindi, or Telugu. The selected
 language is used for the greeting and added as an instruction to the existing
 assistant at call start, preserving its configured role and tools. Configure
