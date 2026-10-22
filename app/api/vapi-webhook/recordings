@@ -5,32 +5,38 @@ export async function GET(request, { params }) {
   const privateKey = process.env.VAPI_PRIVATE_API_KEY;
 
   if (!privateKey) {
-    return NextResponse.json({ error: "Missing VAPI_PRIVATE_API_KEY" }, { status: 500 });
+    return NextResponse.json({ error: "Missing VAPI_PRIVATE_API_KEY in Vercel" }, { status: 500 });
   }
 
   try {
-    const response = await fetch(`https://api.vapi.ai/call/${id}/stereo-recording`, {
+    // 1. Fetch call details directly from Vapi API
+    const response = await fetch(`https://api.vapi.ai/call/${id}`, {
       headers: {
         Authorization: `Bearer ${privateKey}`,
       },
-      redirect: "follow",
     });
 
     if (!response.ok) {
-      return NextResponse.json({ error: "Recording not ready yet" }, { status: 404 });
+      return NextResponse.json({ error: "Failed to fetch call details" }, { status: response.status });
     }
 
-    const audioBuffer = await response.arrayBuffer();
+    const data = await response.json();
 
-    return new NextResponse(audioBuffer, {
-      headers: {
-        "Content-Type": "audio/mpeg",
-        "Accept-Ranges": "bytes",
-        "Content-Length": audioBuffer.byteLength.toString(),
-      },
-    });
+    // 2. Extract recording URL (stereoRecordingUrl, recordingUrl, or artifact recording)
+    const audioUrl = 
+      data?.stereoRecordingUrl || 
+      data?.recordingUrl || 
+      data?.artifact?.stereoRecordingUrl || 
+      data?.artifact?.recordingUrl;
+
+    if (!audioUrl) {
+      return NextResponse.json({ error: "Recording is still processing" }, { status: 404 });
+    }
+
+    // 3. Redirect browser audio player directly to the signed audio file
+    return NextResponse.redirect(audioUrl);
   } catch (error) {
-    console.error("Error proxying recording:", error);
+    console.error("Error fetching recording:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
   }
 }

@@ -17,6 +17,7 @@ export default function SalesBotPage() {
 
   const timerRef = useRef(null);
   const durationRef = useRef(0);
+  const callIdRef = useRef(null); 
 
   useEffect(() => {
     durationRef.current = callDuration;
@@ -47,12 +48,15 @@ export default function SalesBotPage() {
       setCallActive(false);
       clearInterval(timerRef.current);
 
-      const callId = payload?.id || payload?.callId || payload?.call?.id;
-        generateAssignmentArtifacts(durationRef.current, callId);
+      // Extract Call ID safely from any structure Vapi provides
+      const callId = 
+        payload?.call?.id || 
+        payload?.id || 
+        payload?.callId || 
+        (typeof payload === "string" ? payload : null);
 
-      generateAssignmentArtifacts(durationRef.current, recordingUrl);
+      generateAssignmentArtifacts(durationRef.current, callId);
     });
-
     vapi.on("message", (message) => {
       if (message.type === "transcript" && message.transcriptType === "final") {
         setMessages((prev) => [...prev, { role: message.role, text: message.transcript }]);
@@ -87,38 +91,26 @@ export default function SalesBotPage() {
   };
 
   const generateAssignmentArtifacts = (finalDurationSeconds, callId) => {
-    const textBlob = messages.map(m => m.text).join(" ").toLowerCase();
+    const textBlob = messages.map((m) => m.text).join(" ").toLowerCase();
     let status = "Interested";
     let summary = "Customer engaged in conversation about SaaS pricing and features.";
 
-    if (textBlob.includes("buy") || textBlob.includes("subscribe") || textBlob.includes("sign up") || textBlob.includes("purchase")) {
+    if (textBlob.includes("buy") || textBlob.includes("subscribe")) {
       status = "Converted";
       summary = "Customer agreed to purchase and requested onboarding details.";
-    } else if (textBlob.includes("demo") || textBlob.includes("show me") || textBlob.includes("walkthrough")) {
-      status = "Demo Requested";
-      summary = "Customer requested a live product walkthrough demonstration.";
-    } else if (textBlob.includes("call back") || textBlob.includes("tomorrow") || textBlob.includes("later")) {
-      status = "Follow-up Required";
-      summary = "Customer asked for a follow-up call at a later date.";
-    } else if (textBlob.includes("not interested") || textBlob.includes("no thanks") || textBlob.includes("stop")) {
-      status = "Not Interested";
-      summary = "Customer declined the offer and stated no current need.";
     }
 
-    setSalesStatus(status);
-    setAiSummary(summary);
-
     const formattedDuration = formatTime(finalDurationSeconds);
+    const newEntry = {
+      id: Date.now(),
+      vapiCallId: callId, // Stores the unique Vapi call ID
+      date: new Date().toLocaleString(),
+      duration: formattedDuration === "00:00" ? "00:05" : formattedDuration,
+      status: status,
+      summary: summary,
+      messages: [...messages],
+    };
 
-  const newEntry = {
-  id: Date.now(),
-  vapiCallId: callId,
-  date: new Date().toLocaleString(),
-  duration: formattedDuration === "00:00" ? "00:05" : formattedDuration,
-  status: status,
-  summary: summary,
-  messages: [...messages],
-};
     setCallHistory((prev) => {
       const updated = [newEntry, ...prev];
       localStorage.setItem("sankar_sales_call_history", JSON.stringify(updated));
