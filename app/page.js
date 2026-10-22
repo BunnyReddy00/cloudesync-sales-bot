@@ -241,14 +241,20 @@ export default function SalesBotPage() {
                           {item.status}
                         </span>
                       </td>
-                      <td className="p-3 text-xs max-w-xs truncate">{item.summary}</td>
                       <td className="p-3">
-                        {item.recordingUrl ? (
-                          <audio controls src={item.recordingUrl} className="h-8 w-44" />
-                        ) : (
-                          <span className="text-slate-400 text-xs italic">Cloud Syncing...</span>
-                        )}
-                      </td>
+                      {item.recordingUrl ? (
+                        <audio controls src={item.recordingUrl} className="h-8 w-44" />
+                      ) : (
+                        <a 
+                          href="https://dashboard.vapi.ai" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-xs bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 border border-amber-500/40 px-3 py-1.5 rounded-lg transition inline-block"
+                        >
+                          🎵 Listen in Vapi Dashboard
+                        </a>
+                      )}
+                    </td>
                     </tr>
                   ))}
                 </tbody>
