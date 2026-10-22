@@ -212,47 +212,43 @@ export default function SalesBotPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm text-slate-300">
-                <thead className="bg-slate-950 text-slate-400 uppercase text-xs">
-                  <tr>
-                    <th className="p-3 rounded-l-lg">Date & Time</th>
-                    <th className="p-3">Duration</th>
-                    <th className="p-3">Status</th>
-                    <th className="p-3">Summary</th>
-                    <th className="p-3 rounded-r-lg">Recording Playback</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800">
-                  {callHistory.map((item) => (
-                    <tr key={item.id} className="hover:bg-slate-800/40 transition">
-                      <td className="p-3 font-mono text-xs">{item.date}</td>
-                      <td className="p-3 font-mono text-xs">{item.duration}</td>
-                      <td className="p-3">
-                        <span className="px-2 py-0.5 rounded text-xs bg-slate-800 text-slate-200 border border-slate-700">
-                          {item.status}
-                        </span>
-                      </td>
-                    <td className="p-3">
-  {item.vapiCallId ? (
-    <audio 
-      controls 
-      src={`/api/recording/${item.vapiCallId}`} 
-      className="h-8 w-44" 
-    />
-  ) : item.recordingUrl ? (
-    <audio 
-      controls 
-      src={item.recordingUrl} 
-      className="h-8 w-44" 
-    />
-  ) : (
-    <span className="text-slate-400 text-xs italic">Syncing Audio...</span>
-  )}
-</td>
-                    </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <thead className="bg-slate-950 text-slate-400 uppercase text-xs">
+              <tr>
+                <th className="p-3 rounded-l-lg">Date & Time</th>
+                <th className="p-3">Duration</th>
+                <th className="p-3">Status</th>
+                <th className="p-3">Summary</th>
+                <th className="p-3 rounded-r-lg">Recording Playback</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-800">
+              {callHistory.map((item) => (
+                <tr key={item.id} className="hover:bg-slate-800/40 transition">
+                  <td className="p-3 font-mono text-xs">{item.date}</td>
+                  <td className="p-3 font-mono text-xs">{item.duration}</td>
+                  <td className="p-3">
+                    <span className="px-2 py-0.5 rounded text-xs bg-slate-800 text-slate-200">
+                      {item.status}
+                    </span>
+                  </td>
+                  <td className="p-3 text-xs text-slate-300 max-w-xs">
+                    {item.summary}
+                  </td>
+                  <td className="p-3">
+                    {item.vapiCallId ? (
+                      <audio 
+                        controls 
+                        src={`/api/recording/${item.vapiCallId}`} 
+                        className="h-8 w-44" 
+                      />
+                    ) : (
+                      <span className="text-slate-400 text-xs italic">Syncing Audio...</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
             </div>
           )}
         </div>
