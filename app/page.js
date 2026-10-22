@@ -47,12 +47,8 @@ export default function SalesBotPage() {
       setCallActive(false);
       clearInterval(timerRef.current);
 
-      const recordingUrl = 
-        payload?.recordingUrl || 
-        payload?.stereoRecordingUrl || 
-        payload?.artifact?.recordingUrl || 
-        payload?.artifact?.stereoRecordingUrl || 
-        null;
+      const callId = payload?.id || payload?.callId || payload?.call?.id;
+        generateAssignmentArtifacts(durationRef.current, callId);
 
       generateAssignmentArtifacts(durationRef.current, recordingUrl);
     });
@@ -90,7 +86,7 @@ export default function SalesBotPage() {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const generateAssignmentArtifacts = (finalDurationSeconds, recordingUrl) => {
+  const generateAssignmentArtifacts = (finalDurationSeconds, callId) => {
     const textBlob = messages.map(m => m.text).join(" ").toLowerCase();
     let status = "Interested";
     let summary = "Customer engaged in conversation about SaaS pricing and features.";
@@ -114,16 +110,15 @@ export default function SalesBotPage() {
 
     const formattedDuration = formatTime(finalDurationSeconds);
 
-    const newEntry = {
-      id: Date.now(),
-      date: new Date().toLocaleString(),
-      duration: formattedDuration === "00:00" ? "00:05" : formattedDuration,
-      status: status,
-      summary: summary,
-      messages: [...messages],
-      recordingUrl: recordingUrl
-    };
-
+  const newEntry = {
+  id: Date.now(),
+  vapiCallId: callId,
+  date: new Date().toLocaleString(),
+  duration: formattedDuration === "00:00" ? "00:05" : formattedDuration,
+  status: status,
+  summary: summary,
+  messages: [...messages],
+};
     setCallHistory((prev) => {
       const updated = [newEntry, ...prev];
       localStorage.setItem("sankar_sales_call_history", JSON.stringify(updated));
@@ -241,19 +236,16 @@ export default function SalesBotPage() {
                           {item.status}
                         </span>
                       </td>
-                      <td className="p-3">
-                      {item.recordingUrl ? (
-                        <audio controls src={item.recordingUrl} className="h-8 w-44" />
-                      ) : (
-                        <a 
-                          href="https://dashboard.vapi.ai" 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-xs bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 border border-amber-500/40 px-3 py-1.5 rounded-lg transition inline-block"
-                        >
-                          🎵 Listen in Vapi Dashboard
-                        </a>
-                      )}
+                     <td className="p-3">
+                  {item.vapiCallId ? (
+                    <audio 
+                      controls 
+                      src={`/api/recording/${item.vapiCallId}`} 
+                      className="h-8 w-44" 
+                    />
+                  ) : (
+                    <span className="text-slate-400 text-xs italic">Syncing Audio...</span>
+                  )}
                     </td>
                     </tr>
                   ))}
